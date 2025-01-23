@@ -50,7 +50,7 @@ class GUI:
     def grid_gui_widgets(self):
         self.widgets.grid_gui_widgets()
 
-    def import_logfile(self):
+    def import_logfile(self, dropped=False):
         """
         Opens the fileselection to select the one logfile of the current experiment. The selected logfile is inserted into
         the corresponding Treeview. Only one logfile can be imported for
@@ -58,8 +58,10 @@ class GUI:
         :return: The directory which was chosen by the user to contain the logfile
         """
         # Open file explorer to choose one CSV file
-        self.logfile_filepath: str = tk.filedialog.askopenfilename(title='Choose a logfile',
+        if dropped is False:
+            self.logfile_filepath: str = tk.filedialog.askopenfilename(title='Choose a logfile',
                                                                    filetypes=[('CSV', '*.csv')])
+
         # The file name is extracted from the directory
         self.logfile_filename: list = [os.path.basename(self.logfile_filepath)]
         # If a logfile has been selected previously, that logfile is being deleted.

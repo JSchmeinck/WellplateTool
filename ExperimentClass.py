@@ -38,17 +38,8 @@ class Experiment:
 
     def build_laser_log_object(self):
 
-        # Keywords for each column
-        keywords_for_filtering = {
-            'Type': ['Lasso'],
-            'Run Queue Order': [-1],
-            'X(um)': [np.nan],
-            'Y(um)': [np.nan]
-        }
         # Filter rows
         filtered_df = self.raw_laser_logfile_dataframe
-        for col, key_list in keywords_for_filtering.items():
-            filtered_df = filtered_df[~filtered_df[col].isin(key_list)]
         filtered_df = filtered_df.reset_index(drop=True)
         name = os.path.basename(self.logfile_filepath).removesuffix('.csv')
         self.laserlog_object = LaserlogClass.Laserlog(experiment=self,
@@ -285,7 +276,11 @@ class Experiment:
         for mass in self.RawdataSample_objects_dictionary[sample].mass_list:
             mass_dict = self.RawdataSample_objects_dictionary[sample].rawdata_dictionary[mass]
             for well, value in mass_dict.items():
-                average = int(np.average(value))
+                percentile_90 = np.percentile(value, 90)
+
+                # Filter out the top 10% values
+                filtered_arr = value[value <= percentile_90]
+                average = int(np.average(filtered_arr))
                 self.well_information.loc[self.well_information['Well'] == well, mass] = average
 
 
@@ -302,13 +297,6 @@ class Experiment:
         # Apply cell formatting
         workbook = writer.book
         worksheet = writer.sheets['Sheet1']
-
-        # Define a format with red background
-        format_red = workbook.add_format({'bg_color': 'red'})
-        column_index = self.well_information.columns.get_loc('75As | 75As.16O')
-        for i, value in enumerate(self.well_information['75As | 75As.16O'], start=1):
-            if pd.notnull(value) and int(value) > self.decider_value:
-                worksheet.write(i, column_index, value, format_red)
 
         # Close the Pandas Excel writer and output the Excel file
         writer.close()
@@ -340,14 +328,14 @@ class Experiment:
                                                                                         '#007FFF', '#00FFFF', '#00FF7F',
                                                                                         '#00FF00', '#7FFF00', '#FFFF00',
                                                                                         '#FFC800', '#FF0000'])
-            plt.register_cmap(cmap=custom_cmap)
+            plt.colormaps.register(cmap=custom_cmap)
         except ValueError:
             pass
 
         try:
             custom_cmap = mpl.colors.LinearSegmentedColormap.from_list(name='Yellows',
                                                                            colors=['white', '#f5e216'])
-            plt.register_cmap(cmap=custom_cmap)
+            plt.colormaps.register(cmap=custom_cmap)
         except ValueError:
             pass
 
@@ -375,11 +363,16 @@ class Experiment:
 
         for row_number, well_letter in enumerate(wellplate_letters):
             for column_number, well_number in enumerate(wellplate_numbers):
-                try:
+                if f'{well_letter}{well_number}' in data.keys():
                     well_data = data[f'{well_letter}{well_number}']
                     mean_data_dictionary[f'{well_letter}{well_number}'] = np.average(well_data)
                     list_of_wells.append(f'{well_letter}{well_number}')
-                except:
+                elif f'{well_letter}_{well_number}' in data.keys():
+                    well_data = data[f'{well_letter}_{well_number}']
+                    mean_data_dictionary[f'{well_letter}{well_number}'] = np.average(well_data)
+                    list_of_wells.append(f'{well_letter}{well_number}')
+                    underscores = True
+                else:
                     print(f'Well {well_letter}{well_number} not in Data')
 
         frame_width = 1200
@@ -401,25 +394,15 @@ class Experiment:
         for row_number, well_letter in enumerate(wellplate_letters):
             for column_number, well_number in enumerate(wellplate_numbers):
                 well = f'{well_letter}{well_number}'
-                if well in list_of_wells and well in data.keys():
-                    mean_raw_data_of_well = data[str(well)].mean()
-                    mean_raw_data_of_well_arsenic = arsenic_data[str(well)].mean()
-                    mean_raw_data_of_well_copper = copper_data[str(well)].mean()
-                    mean_data_dictionary[f'{row_number}_{column_number}'] = '%.2E' % Decimal(str(mean_raw_data_of_well))
+                if well in list_of_wells:
+                    mean_raw_data_of_well = mean_data_dictionary[well]
                     norm_value = mean_raw_data_of_well / absolute_max  # Normalize the value to [0, max_malue] for colormap
                     color = self.rgba_to_hex(colormap(norm_value))
                     x0 = column_number * (cell_width + padding) + label_width
                     y0 = row_number * (cell_height + padding) + label_height
                     x1 = x0 + cell_width
                     y1 = y0 + cell_height
-                    if mean_raw_data_of_well_arsenic > self.decider_value_arsenic and mean_raw_data_of_well_copper > self.decider_value_copper:
-                        rectangle = canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline='red', width=3)
-                    elif mean_raw_data_of_well_arsenic > self.decider_value_arsenic and not mean_raw_data_of_well_copper > self.decider_value_copper:
-                        rectangle = canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline='red', width=3, dash=(3, 5))
-                    elif mean_raw_data_of_well_arsenic > self.putative_value_arsenic:
-                        rectangle = canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline='blue', width=3)
-                    else:
-                        rectangle = canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline='black')
+                    rectangle = canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline='black')
                     self.rectangles_dictionary[well] = rectangle
                 else:
                     pass

@@ -3,6 +3,67 @@ import numpy as np
 import os
 import tkinter as tk
 
+def filter_laser_shots(df):
+    # Initialize an empty list to collect the rows to keep
+    rows_to_keep = []
+
+    # Track the current sample's start row
+    sample_start_idx = None
+    total_rows = len(df)
+
+    # Loop through the dataframe to process each sample
+    for i in range(total_rows):
+        # If we find a new sample (non-empty Name column), process the previous sample if necessary
+        if pd.notna(df.at[i, 'Comment']):
+            if sample_start_idx is not None:
+                # Handle the previous sample, add the start row, first shot, and last shot
+                first_laser_shot_idx = sample_start_idx + 2  # First laser shot row
+                last_laser_shot_idx = sample_start_idx + 2 + 3 * 19  # Last laser shot row (19th laser shot)
+
+                # Keep the sample start row, first shot and last shot rows
+                rows_to_keep.append(sample_start_idx)
+                rows_to_keep.append(first_laser_shot_idx)
+                rows_to_keep.append(first_laser_shot_idx + 1)
+                rows_to_keep.append(first_laser_shot_idx + 1)
+                rows_to_keep.append(last_laser_shot_idx + 1)
+                rows_to_keep.append(last_laser_shot_idx + 2)
+
+            # Update the sample_start_idx to the new sample start
+            sample_start_idx = i
+
+    # Make sure to process the last sample after the loop
+    if sample_start_idx is not None:
+        first_laser_shot_idx = sample_start_idx + 2  # First laser shot row
+        last_laser_shot_idx = sample_start_idx + 2 + 3 * 19  # Last laser shot row (19th laser shot)
+
+        # Keep the sample start row, first shot and last shot rows
+        rows_to_keep.append(sample_start_idx)
+        rows_to_keep.append(first_laser_shot_idx)
+        rows_to_keep.append(first_laser_shot_idx + 1)
+        rows_to_keep.append(first_laser_shot_idx + 1)
+        rows_to_keep.append(last_laser_shot_idx + 1)
+        rows_to_keep.append(last_laser_shot_idx + 2)
+
+    # Filter the dataframe by the rows to keep
+    filtered_df = df.iloc[rows_to_keep].reset_index(drop=True)
+
+    column_name = 'Intended X(um)'
+    column_index = filtered_df.columns.get_loc(column_name)
+
+    # Step 1: Reset the values in the 'Intended X(um)' column to NaN
+    filtered_df[column_name] = np.nan
+
+    # Step 2: Update the fourth and fifth rows of each set of 6 rows to 1
+    num_rows = len(filtered_df)
+    rows_per_set = 6
+    for i in range(0, num_rows, rows_per_set):
+        if i + 4 < num_rows:  # Ensure within bounds
+            filtered_df.at[i + 3, column_name] = 1  # Fourth row in the set
+        if i + 5 < num_rows:  # Ensure within bounds
+            filtered_df.at[i + 4, column_name] = 1  # Fifth row in the set
+
+    return filtered_df
+
 
 def remove_on_blocks(df, column_name='Laser State'):
     indices_to_remove = []
@@ -37,7 +98,7 @@ class Importer:
     def __init__(self, gui):
         self.gui = gui
 
-    def import_laser_logfile(self, logfile, laser_type, rectangular_data_calculation, iolite_file=False, logfile_viewer=False):
+    def import_laser_logfile(self, logfile, laser_type, rectangular_data_calculation, iolite_file=False, logfile_viewer=False, wellplate_singleshots=True):
         if laser_type == 'Cetac G2+':
             if rectangular_data_calculation is False:
                 with open(logfile) as file:
@@ -118,7 +179,12 @@ class Importer:
                                                               body='Your Logfile Data does not match your chosen Laser Type')
                     return False
 
-                iolite_dataframe = remove_on_blocks(df=iolite_dataframe)
+                if wellplate_singleshots is True:
+                    iolite_dataframe = filter_laser_shots(df=iolite_dataframe)
+                else:
+                    iolite_dataframe = remove_on_blocks(df=iolite_dataframe)
+
+                iolite_dataframe['Comment'] = iolite_dataframe['Comment'].str.replace('_', '', regex=False)
 
                 logfile_dictionary = {}
 
@@ -142,23 +208,10 @@ class Importer:
                 type_array = type_array.repeat(2)
                 type_array[1::2] = np.nan
 
-                spotsize_array = iolite_dataframe['Spot Size (um)'].to_numpy()
-                spotsize_array = spotsize_array[0::6]
-                spotsize_array = spotsize_array.repeat(2)
-                spotsize_array[1::2] = np.nan
-
-                x_array = iolite_dataframe['Intended X(um)'].dropna().values
-                y_array = iolite_dataframe['Intended Y(um)'].dropna().values
-
                 logfile_dictionary['Pattern #'] = pattern_number_array
                 logfile_dictionary['Name'] = name_array
-                logfile_dictionary['Type'] = type_array
-                logfile_dictionary['Run Queue Order'] = run_queue_order_array
-                logfile_dictionary['Scan Speed(Î¼m/sec)'] = scan_speed_array
-                logfile_dictionary['X(um)'] = x_array
-                logfile_dictionary['Y(um)'] = y_array
 
-                logfile_dictionary['Spotsize'] = spotsize_array
+
 
                 logfile_dataframe = pd.DataFrame(logfile_dictionary)
 
@@ -175,6 +228,10 @@ class Importer:
                                                  'Laser State', 'Laser Rep. Rate (Hz)', 'Spot Type', 'Spot Size (um)']
 
                     logfile_dataframe = remove_on_blocks(df=logfile_dataframe)
+                    if wellplate_singleshots is True:
+                        logfile_dataframe = filter_laser_shots(df=logfile_dataframe)
+                    logfile_dataframe['Comment'] = logfile_dataframe['Comment'].str.replace('_', '', regex=False)
+
                 except ValueError:
                     self.gui.notifications.notification_error(header='Data Type Error',
                                                               body='Your Logfile Data does not match your chosen Laser Type')
@@ -256,9 +313,11 @@ class Importer:
             # Read the file and display its content
             if file_path.endswith('.csv'):
                 df = pd.read_csv(file_path)
+                df['Well'] = df['Well'].str.replace('_', '', regex=False)
             elif file_path.endswith('.xlsx'):
                 df = pd.read_excel(file_path)
+                df['Well'] = df['Well'].str.replace('_', '', regex=False)
             self.gui.experiment.well_information = df
-    
+
 
         

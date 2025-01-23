@@ -3,7 +3,6 @@ import GUI_Master
 import sys
 import os
 
-
 def resource(relative_path):
     base_path = getattr(
         sys,

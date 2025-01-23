@@ -292,8 +292,8 @@ class ImageSynchronizer:
             y_data[y_data > 0] = maximum
             self.laser_log_plot[0].set_ydata(y_data)
         else:
-            self.raw_data_plot[0].set_ydata(self.sample_rawdata[mass].values)
-            maximum = np.max(self.sample_rawdata[mass].values) * 1.2
+            self.raw_data_plot[0].set_ydata(self.sample_rawdata[mass].values.astype(float))
+            maximum = float(np.max(self.sample_rawdata[mass].values.astype(float))) * 1.2
             y_data = self.laser_log_plot[0].get_ydata()
             y_data[y_data > 0] = maximum
             self.laser_log_plot[0].set_ydata(y_data)

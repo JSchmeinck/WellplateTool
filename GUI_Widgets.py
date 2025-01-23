@@ -7,6 +7,11 @@ if TYPE_CHECKING:
 
 import tkinter as tk
 from tkinter import ttk
+from tkinterdnd2 import *
+
+def drop_logfile(event):
+    GUI_Master.GUI.logfile_filepath = event.data
+    GUI_Master.GUI.import_logfile(dropped=True)
 
 
 class CustomTreeview(ttk.Treeview):
