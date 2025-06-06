@@ -5,7 +5,6 @@ import tkinter as tk
 
 
 def remove_on_blocks(df, column_name='Laser State'):
-    """Entfernt überflüssige Zeilen, behält nur bestimmte Einträge innerhalb 'On'-Blöcken."""
     indices_to_remove = []
 
     on_block_start = None
@@ -31,12 +30,10 @@ class Importer:
         self.gui = gui
 
     def _load_csv_file(self, logfile, skip_rows=1):
-        """Lädt eine CSV-Datei und gibt ein DataFrame zurück."""
         with open(logfile) as file:
             return pd.read_csv(file, skiprows=skip_rows, header=None)
 
     def _assign_columns(self, dataframe, column_names):
-        """Weist Spaltennamen zu."""
         try:
             dataframe.columns = column_names
         except ValueError:
@@ -48,7 +45,6 @@ class Importer:
         return dataframe
 
     def _extract_laser_data(self, dataframe, laser_type="Cetac G2+"):
-        """Extrahiert und formatiert Laserdaten."""
         common_columns = [
             "Timestamp",
             "Sequence Number",
@@ -70,46 +66,32 @@ class Importer:
             specific_columns = ["Spot Type", "Spot Size", "Spot Angle", "MFC1", "MFC2"]
         else:
             specific_columns = []
-
         column_names = common_columns + specific_columns
         dataframe = self._assign_columns(dataframe, column_names)
-
-        if dataframe is None:  # Fehler beim Zuweisen der Spaltennamen
+        if dataframe is None:
             return None
 
         return dataframe
 
-    def import_laser_logfile(self, logfile, laser_type, rectangular_data_calculation, iolite_file=False,
-                             logfile_viewer=False):
-        """Verarbeitet verschiedene Logfile-Typen für unterschiedliche Laser."""
-        # Lade CSV in DataFrame
+    def import_laser_logfile(self, logfile, laser_type, rectangular_data_calculation):
         logfile_dataframe = self._load_csv_file(logfile)
-
-        # Extrahiere Laser-spezifische Spalten
         logfile_dataframe = self._extract_laser_data(logfile_dataframe, laser_type)
-
         if logfile_dataframe is None:
             return None
 
-        # Spezialfall: Rechteckige Datenberechnung
         if rectangular_data_calculation:
             return self._process_rectangular_data(logfile_dataframe, laser_type)
 
-        # Standardfall
         return logfile_dataframe
 
     def _process_rectangular_data(self, dataframe, laser_type):
-        """Verarbeitet rechteckige Daten auf Basis spezieller Logik."""
         if "Cetac G2+" in laser_type:
-            # Beispiel für spezifische Verarbeitung...
             dataframe["Processed Column"] = dataframe["X(um)"] * dataframe["Y(um)"]
         else:
             dataframe = remove_on_blocks(dataframe)
-        # Weitere Verarbeitung (falls notwendig)...
         return dataframe
 
     def import_sample_file(self, data_type, synchronized):
-        """Lädt Probeninformationen basierend auf dem Datentyp."""
         sample_rawdata_dictionary = {}
         for i, filepath in enumerate(self.gui.list_of_files):
             with open(filepath) as file:
@@ -119,7 +101,6 @@ class Importer:
         return sample_rawdata_dictionary
 
     def import_well_data(self):
-        """Importiert Daten aus einem Experiment-Well."""
         file_path = tk.filedialog.askopenfilename(filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xlsx")])
         if file_path:
             file_name = os.path.splitext(os.path.basename(file_path))[0]

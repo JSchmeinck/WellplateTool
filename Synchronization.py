@@ -1,7 +1,3 @@
-import os
-import tkinter.filedialog
-
-
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -10,22 +6,18 @@ import numpy as np
 from datetime import datetime
 import keyboard
 from tkinter import ttk
-from matplotlib.collections import LineCollection
 from tkinter import Menu
 
 
 def mask_array(main_array, mask_array, on_value, timestamp_array):
 
-    # Create a boolean mask where the mask_array has the value 'Off'
     mask = np.ma.masked_invalid(mask_array, copy=True)
 
     boolean_mask = np.ma.getmaskarray(mask)
 
     inverted_boolean_mask = np.invert(boolean_mask)
-    # Use the boolean mask to update the main_array with the replacement_value
     masked_array = np.where(boolean_mask, 0, main_array)
 
-    # Set the values in main_array to replacement_value where mask_array has the value 'On'
     masked_array[inverted_boolean_mask] = on_value
 
     reduced_on_array = masked_array[masked_array != 0]
@@ -35,7 +27,7 @@ def mask_array(main_array, mask_array, on_value, timestamp_array):
     extended_array = []
     for i, value in enumerate(reduced_on_array):
         extended_array.append(value)
-        if i % 2 == 1:  # Check if it's the second value
+        if i % 2 == 1:
             extended_array.extend(zeros_array)
 
     extended_array = np.insert(extended_array, 0, 0)
@@ -45,11 +37,9 @@ def mask_array(main_array, mask_array, on_value, timestamp_array):
 
     time_objects = [datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S.%f') for time_str in timestamp_array]
 
-    # Calculate time differences in seconds.milliseconds
     start_time = time_objects[0]
     time_diffs = [(time - start_time).total_seconds() for time in time_objects]
 
-    # Convert time differences to a new numpy array
     time_diff_array = np.array(time_diffs)
 
     masked_array_time = np.where(boolean_mask, -1, time_diff_array)
@@ -145,53 +135,6 @@ class ImageSynchronizer:
                                         text='Accept', command=self.accept)
         self.accept_button.grid(row=0, column=7)
 
-        # Extension_GUI
-
-        self.subtract_extension_button = ttk.Button(master=self.peripheral_frame,
-                                           text='-',
-                                           command=lambda: self.extend_laser_log_time(direction='left'),
-                                           width=5)
-        self.subtract_extension_button.grid(row=1, column=0, sticky='e')
-        self.extension_increment = tk.DoubleVar(value=1.0)
-        self.extension_increment_entry = ttk.Entry(master=self.peripheral_frame,
-                                              textvariable=self.extension_increment,
-                                                   width=10)
-        self.extension_increment_entry.grid(row=1, column=1)
-        self.add_extension_button = ttk.Button(master=self.peripheral_frame,
-                                            text='+',
-                                            command=lambda: self.extend_laser_log_time(direction='right'),
-                                            width=5)
-        self.add_extension_button.grid(row=1, column=2, sticky='w')
-        self.reset_extension_button = ttk.Button(master=self.peripheral_frame,
-                                       text='Reset Extension',
-                                       command=self.reset_extension,
-                                       width=17)
-        self.reset_extension_button.grid(row=1, column=3)
-        self.current_extension_label = ttk.Label(master=self.peripheral_frame,
-                                              text='Current Extension:')
-        self.current_extension_label.grid(row=1, column=4)
-        self.current_extension = tk.StringVar(value='0 s')
-        self.current_extension_entry = ttk.Label(master=self.peripheral_frame,
-                                              textvariable=self.current_extension,
-                                              state=tk.DISABLED)
-        self.current_extension_entry.grid(row=1, column=5, padx=20)
-
-        self.checkbutton_multiple_samples = ttk.Checkbutton(master=self.peripheral_frame,
-                                                            text='Multiple Samples',
-                                                            onvalue=True,
-                                                            offvalue=False,
-                                                            variable=self.gui.widgets.multiple_samples,
-                                                            command=self.gui.change_of_synchronization_mode)
-        self.checkbutton_multiple_samples.grid(row=3, column=0, columnspan=2, pady=(10, 0), sticky='w')
-
-        self.first_line_synchronization_checkbutton = ttk.Checkbutton(master=self.peripheral_frame,
-                                                                      text='Use first Line for Synchronization',
-                                                                      onvalue=True,
-                                                                      offvalue=False,
-                                                                      variable=self.gui.widgets.first_line_synchronization,
-                                                                      command=self.gui.change_of_synchronization_mode)
-        self.first_line_synchronization_checkbutton.grid(row=3, column=2, columnspan=3, pady=(10, 0))
-
         self.background_correction = tk.BooleanVar(value=False)
         self.background_correction_checkbutton = ttk.Checkbutton(master=self.peripheral_frame,
                                                                  text='Background Correction',
@@ -227,7 +170,7 @@ class ImageSynchronizer:
         self.laser_log_plot = None
         self.raw_data_plot = None
         self.canvas = None
-        self.dragging_line = False  # Flag to indicate dragging state
+        self.dragging_line = False
         self.dragging_xaxis = False
 
         self.multi_import = False
@@ -273,8 +216,6 @@ class ImageSynchronizer:
             self.ax.relim()
             self.ax.autoscale()
 
-
-        # Create a canvas for Matplotlib figure
         if self.multi_import is False:
             self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
             self.canvas.draw()
@@ -374,36 +315,77 @@ class ImageSynchronizer:
 
     def zoom(self, event):
 
-        # get the current x and y limits
-        cur_xlim = self.ax.get_xlim()
-        # set the range
-        cur_xrange = (cur_xlim[1] - cur_xlim[0]) * .5
-        if event.button == 'up':
-            # deal with zoom in
-            scale_factor = 0.3
+        fig_x, fig_y = self.fig.transFigure.inverted().transform((event.x, event.y))
 
-            self.ax.set_xlim([cur_xlim[0] + cur_xrange * scale_factor, cur_xlim[1] - cur_xrange * scale_factor])
+        ax_left, ax_bottom, ax_width, ax_height = self.ax.get_position().bounds
 
-        elif event.button == 'down':
-            # deal with zoom out
-            scale_factor = 0.3
-            self.ax.set_xlim([cur_xlim[0] - cur_xrange * scale_factor,
-                                  cur_xlim[1] + cur_xrange * scale_factor])
-        else:
-            # deal with something that should never happen
+        margin = 0.05
+
+        if (ax_left - margin <= fig_x <= ax_left + margin):
+            cur_ylim = self.ax.get_ylim()
+            cur_yrange = (cur_ylim[1] - cur_ylim[0]) * .5
+            if event.button == 'up':
+                scale_factor = 0.3
+
+                xmax = cur_ylim[1] - cur_yrange * scale_factor
+
+                self.ax.set_ylim([-(0.04353*xmax), cur_ylim[1] - cur_yrange * scale_factor])
+
+                self.update_y_values_of_laser_log_plot(cur_ylim)
+
+            elif event.button == 'down':
+                scale_factor = 0.3
+                xmax = cur_ylim[1] - cur_yrange * scale_factor
+
+                self.ax.set_ylim([-(0.04353*xmax),
+                                  cur_ylim[1] + cur_yrange * scale_factor])
+
+                self.update_y_values_of_laser_log_plot(cur_ylim)
+
+            self.ax.figure.canvas.draw_idle()
+            self.window.update()
             return
-        self.ax.figure.canvas.draw_idle()
-        self.window.update()
-            # set new limits
+
+
+        else:
+            xdata = event.xdata
+            ydata = event.ydata
+
+            if xdata is None or ydata is None:
+                return
+
+            cur_xlim = self.ax.get_xlim()
+            cur_xrange = (cur_xlim[1] - cur_xlim[0]) * .5
+            if event.button == 'up':
+                scale_factor = 0.3
+
+                self.ax.set_xlim([cur_xlim[0] + cur_xrange * scale_factor, cur_xlim[1] - cur_xrange * scale_factor])
+
+            elif event.button == 'down':
+                scale_factor = 0.3
+                self.ax.set_xlim([cur_xlim[0] - cur_xrange * scale_factor,
+                                      cur_xlim[1] + cur_xrange * scale_factor])
+            else:
+                return
+            self.ax.figure.canvas.draw_idle()
+            self.window.update()
+
+    def update_y_values_of_laser_log_plot(self, old_ylim):
+
+        new_ylim = self.ax.get_ylim()
+
+        scale_factor = (new_ylim[1] - new_ylim[0]) / (old_ylim[1] - old_ylim[0])
+
+        new_y = self.laser_log_plot[0].get_ydata() * scale_factor
+
+        self.laser_log_plot[0].set_ydata(new_y)
 
     def on_button_press(self, event):
         if event.button == 1:
             if event.inaxes is not None and event.inaxes == self.ax:
-                # Check if the click is on the x-axis
                 self.dragging_xaxis = True
                 self.offset_axis = event.xdata
             if event.button == 1:
-                # Check if the click is on the line
                 self.dragging_line = True
                 self.click_offset = event.xdata
 
@@ -423,16 +405,9 @@ class ImageSynchronizer:
 
         if self.dragging_line and keyboard.is_pressed("shift"):
             if event.xdata is not None and self.click_offset is not None:
-                # Calculate the distance dragged
                 current_x = event.xdata
-
-                # Calculate the distance dragged
                 delta_x = current_x - self.click_offset
-
-                # Update the line data by shifting it in the x-direction
                 self.laser_log_plot[0].set_xdata(self.laser_log_plot[0].get_xdata() + delta_x)
-
-                # Update the offset for the next motion event
                 self.click_offset = current_x
 
                 new_x_data = self.laser_log_plot[0].get_xdata()
@@ -443,19 +418,15 @@ class ImageSynchronizer:
             if event.xdata is not None and self.offset_axis is not None:
 
                 cur_xlim = self.ax.get_xlim()
-                # Calculate the distance dragged
                 delta_x = event.xdata - self.offset_axis
 
-                # Update the x-axis limits
                 new_x_limits = [cur_xlim[0] - delta_x, cur_xlim[1] - delta_x]
                 self.ax.set_xlim(new_x_limits)
-                # Redraw the canvas
 
         self.update_background_correction(event=None)
 
     def on_release(self, event):
 
-        # Disable dragging state
         self.dragging_line = False
         self.dragging_xaxis = False
 
@@ -466,19 +437,6 @@ class ImageSynchronizer:
         self.shifted_laser_log_time = self.laser_log_time
         self.update_background_correction(event=None)
 
-    def reset_extension(self):
-
-        self.laser_log_time_extension = 0
-
-        self.clean_time_array_extended = self.clean_time_array.copy()
-
-        duplicated_time_array = self.clean_time_array.repeat(2)
-
-        self.laser_log_plot[0].set_xdata(duplicated_time_array)
-
-        self.current_extension.set(f'{self.laser_log_time_extension} s')
-
-        self.update_background_correction(event=None)
     def move_laser_log_time(self, direction):
 
         increment = self.move_increment.get()
@@ -500,58 +458,21 @@ class ImageSynchronizer:
 
         self.update_background_correction(event=None)
 
-    def extend_laser_log_time(self, direction):
-
-        is_sorted = lambda a: np.all(a[:-1] <= a[1:])
-
-        if direction == 'left':
-            self.laser_log_time_extension = self.laser_log_time_extension - self.extension_increment.get()
-
-        if direction == 'right':
-            self.laser_log_time_extension = self.laser_log_time_extension + self.extension_increment.get()
-
-        self.clean_time_array_extended = self.clean_time_array.copy()
-        self.clean_time_array_extended[0::2] = self.clean_time_array_extended[0::2] - self.laser_log_time_extension
-        self.clean_time_array_extended[1::2] = self.clean_time_array_extended[1::2] + self.laser_log_time_extension
-
-        if is_sorted(self.clean_time_array_extended):
-            pass
-        else:
-            if direction == 'left':
-                self.laser_log_time_extension = self.laser_log_time_extension + self.extension_increment.get()
-
-            if direction == 'right':
-                self.laser_log_time_extension = self.laser_log_time_extension - self.extension_increment.get()
-
-            self.clean_time_array_extended = self.clean_time_array.copy()
-            self.clean_time_array_extended[0::2] = self.clean_time_array_extended[0::2] - self.laser_log_time_extension
-            self.clean_time_array_extended[1::2] = self.clean_time_array_extended[1::2] + self.laser_log_time_extension
-
-        offset_time_array = self.clean_time_array_extended - self.laser_log_time_offset
-        duplicated_time_array = offset_time_array.repeat(2)
-
-        self.laser_log_plot[0].set_xdata(duplicated_time_array)
-
-        self.current_extension.set(f'{self.laser_log_time_extension} s')
-
-        self.update_background_correction(event=None)
-
     def accept(self):
         self.toggle_window_visivility()
         self.current_offset.set(f'0 s')
 
-        if self.gui.widgets.multiple_samples.get():
-            self.calculate_samples_multiple_samples()
-        else:
-            self.calculate_samples()
+
+        self.calculate_samples()
 
         self.gui.update_status()
+        self.gui.build_experiment_objects()
 
     def get_background_timestamps(self, sample_names_arr):
         background_timestamps = []
         for name in sample_names_arr:
             segments = self.background_lines_dictionary[name].get_segments()
-            x_start = segments[0][0]  # x-coordinate at the start of the line
+            x_start = segments[0][0]
             x_end = segments[0][1]
             background_timestamps.append(x_start[0])
             background_timestamps.append(x_end[0])
@@ -560,21 +481,18 @@ class ImageSynchronizer:
     def get_background_corrected_data(self, sample_data, background_data: np.array):
         for column in background_data:
             background_values = background_data[column].values
-            background_mean = np.mean(background_values.astype(float))
+
+            background_median = np.median(background_values.astype(float))
             sample_column = sample_data[column].values
-            sample_data[column] = sample_column.astype(float)-background_mean
+            sample_data[column] = sample_column.astype(float)-background_median
         return sample_data
     def calculate_samples(self):
         self.sample_data_dictionary = {}
         self.indices_dictionary = {}
 
         time_windows_arr = self.clean_time_array_extended - self.laser_log_time_offset
-        if self.gui.widgets.first_line_synchronization.get():
-            time_windows_arr = time_windows_arr[2:]
         df = self.sample_rawdata
         sample_names_arr = self.samples
-        if self.gui.widgets.first_line_synchronization.get():
-            sample_names_arr = sample_names_arr[1:]
 
         if self.background_correction.get():
             background_timestamps = self.get_background_timestamps(sample_names_arr=sample_names_arr)
@@ -584,25 +502,20 @@ class ImageSynchronizer:
 
         max_length = max(len(time_windows_arr), len(sample_names_arr))
 
-        # Pad the arrays with np.nan values to make them the same length
         time_windows_arr = np.pad(time_windows_arr, (0, max_length - len(time_windows_arr)), mode='constant',
                                   constant_values=np.nan)
         sample_names_arr = np.pad(sample_names_arr, (0, max_length - len(sample_names_arr)), mode='constant',
                                   constant_values='')
 
-        # Create an empty dictionary to hold the data for each sample
         samples_data = {}
 
-        # Create an empty list to hold the column names for each row
         column_names_list = []
 
-        # Iterate through the time windows and sample names
         for i in range(0, len(time_windows_arr), 2):
             start_time = time_windows_arr[i]
             end_time = time_windows_arr[i + 1]
             sample_name = sample_names_arr[i // 2]
 
-            # Filter the rows that fall within the current time window for the current sample
             mask = (df['Time'] >= start_time) & (df['Time'] <= end_time)
             sample_data = df[mask].drop(columns='Time')
             self.indices_dictionary[sample_name] = sample_data.index.tolist()
@@ -615,10 +528,8 @@ class ImageSynchronizer:
                 sample_data = self.get_background_corrected_data(sample_data=sample_data,
                                                                  background_data=background_data)
 
-            # Store the filtered data as a new column in the dictionary
             samples_data[sample_name] = np.concatenate([sample_data[col].values for col in sample_data.columns])
 
-            # Store the column names for each row
             column_names_list.extend(sample_data.columns)
 
         decider, length_of_arrays = self.check_array_length(samples_data)
@@ -629,19 +540,14 @@ class ImageSynchronizer:
         else:
             largest_value = max(length_of_arrays)
 
-            # Step 2: Iterate through the dictionary of numpy arrays
             for key, array in samples_data.items():
-                # Step 3: Check if the length of the array matches the largest value
                 if len(array) == largest_value:
                     final_step = len(array) / magic_number
                 else:
-                    # Calculate the integer and step as described in the question
                     integer = (largest_value - len(array)) / magic_number
                     step = len(array) / magic_number
 
                     nan_values = np.full((int(integer),), np.nan)
-
-                    # Insert np.nan values at each step
                     for i in range(1, magic_number+1):
                         insert_index = (i * step) + ((i-1) * integer)
                         if insert_index == array.size:
@@ -649,14 +555,11 @@ class ImageSynchronizer:
                         else:
                             array = np.insert(array, int(insert_index), nan_values)
 
-                    # Update the dictionary with the modified array
                     samples_data[key] = array
 
-
-        # Convert the dictionary to a new DataFrame
         result_df = pd.DataFrame(samples_data)
 
-        if self.data_type == 'iCap TQ (Daisy)':
+        if self.data_type == 'iCap TQ':
             self.list_of_unique_masses_in_file = list_of_column_names[1:]
 
         for k, i in enumerate(self.list_of_unique_masses_in_file):
@@ -672,123 +575,6 @@ class ImageSynchronizer:
         self.gui.data_is_synchronized = True
         if self.background_correction.get():
             self.gui.data_is_background_corrected = True
-        if self.gui.widgets.first_line_synchronization.get():
-            self.gui.data_is_first_line_synchronized = True
-
-    def calculate_samples_multiple_samples(self):
-        self.sample_data_dictionary = {}
-        indices_dictionary = {}
-
-
-        logfile_dataframe = self.gui.importer.import_laser_logfile(logfile=self.gui.logfile_filepath,
-                                                                   laser_type=self.gui.widgets.laser_type.get(),
-                                                                   iolite_file=True,
-                                                                   rectangular_data_calculation=True,
-                                                                   logfile_viewer=True)
-        logfile, sample_overview_dictionary = self.gui.logfile_viewer.divide_samples(logfile=logfile_dataframe,
-                                                                            sample_overview=True)
-        df = self.sample_rawdata
-        for sample, infos in sample_overview_dictionary.items():
-            indices_of_samples = np.array(infos['idx_List'])
-            indices_of_samples = indices_of_samples.repeat(2)
-            indices_of_samples[1::2] = indices_of_samples[1::2]+1
-
-            sample_names_arr = infos['Names']
-
-            if self.background_correction.get():
-                background_timestamps = self.get_background_timestamps(sample_names_arr=sample_names_arr)
-
-            num_columns = df.shape[1]-1
-            list_of_column_names = list(df.columns.values)
-
-            time_windows_arr = self.clean_time_array_extended - self.laser_log_time_offset
-            time_windows_arr = time_windows_arr[indices_of_samples[0]:indices_of_samples[-1]+1]
-
-
-            # Create an empty dictionary to hold the data for each sample
-            samples_data = {}
-
-            # Create an empty list to hold the column names for each row
-            column_names_list = []
-
-            # Iterate through the time windows and sample names
-            for i in range(0, len(time_windows_arr), 2):
-                start_time = time_windows_arr[i]
-                end_time = time_windows_arr[i + 1]
-                sample_name = sample_names_arr[i // 2]
-
-                # Filter the rows that fall within the current time window for the current sample
-                mask = (df['Time'] >= start_time) & (df['Time'] <= end_time)
-                sample_data = df[mask].drop(columns='Time')
-                indices_dictionary[sample_name] = sample_data.index.tolist()
-
-                if self.background_correction.get():
-                    background_start_time = background_timestamps[i]
-                    background_end_time = background_timestamps[i + 1]
-                    background_mask = (df['Time'] >= background_start_time) & (df['Time'] <= background_end_time)
-                    background_data = df[background_mask].drop(columns='Time')
-                    sample_data = self.get_background_corrected_data(sample_data=sample_data,
-                                                                     background_data=background_data)
-
-                # Store the filtered data as a new column in the dictionary
-                samples_data[sample_name] = np.concatenate([sample_data[col].values for col in sample_data.columns])
-
-                # Store the column names for each row
-                column_names_list.extend(sample_data.columns)
-
-            decider, length_of_arrays = self.check_array_length(samples_data)
-
-            magic_number = num_columns
-            if decider:
-                final_step = length_of_arrays / magic_number
-            else:
-                largest_value = max(length_of_arrays)
-
-                # Step 2: Iterate through the dictionary of numpy arrays
-                for key, array in samples_data.items():
-                    # Step 3: Check if the length of the array matches the largest value
-                    if len(array) == largest_value:
-                        final_step = len(array) / magic_number
-                    else:
-                        # Calculate the integer and step as described in the question
-                        integer = (largest_value - len(array)) / magic_number
-                        step = len(array) / magic_number
-
-                        nan_values = np.full((int(integer),), np.nan)
-
-                        # Insert np.nan values at each step
-                        for i in range(1, magic_number+1):
-                            insert_index = (i * step) + ((i-1) * integer)
-                            if insert_index == array.size:
-                                array = np.concatenate((array, nan_values))
-                            else:
-                                array = np.insert(array, int(insert_index), nan_values)
-
-                        # Update the dictionary with the modified array
-                        samples_data[key] = array
-
-
-            # Convert the dictionary to a new DataFrame
-            result_df = pd.DataFrame(samples_data)
-
-            if self.data_type == 'iCap TQ (Daisy)':
-                self.list_of_unique_masses_in_file = list_of_column_names[1:]
-
-            for k, i in enumerate(self.list_of_unique_masses_in_file):
-                if k == 0:
-                    mass_name_array = np.full(shape=(int(final_step),), fill_value=i)
-                else:
-                    filler = np.full(shape=(int(final_step),), fill_value=i)
-                    mass_name_array = np.concatenate((mass_name_array, filler))
-            result_df.insert(0, 'Unnamed: 2', mass_name_array)
-
-            self.sample_data_dictionary[sample] = result_df
-
-        self.gui.data_is_synchronized = True
-        if self.background_correction.get():
-            self.gui.data_is_background_corrected = True
-        if self.gui.widgets.first_line_synchronization.get():
-            self.gui.data_is_first_line_synchronized = True
 
     def calculate_logfile_extension(self, log_data):
         part_one = [x - self.extension.get() for x in log_data[::2]]
@@ -803,20 +589,15 @@ class ImageSynchronizer:
     def check_array_length(self, data_dict):
         different_num_values = set()
 
-        # Get the number of values for the first array to use it as the reference
         reference_num_values = data_dict[list(data_dict.keys())[0]].size
         different_num_values.add(reference_num_values)
 
-        # Iterate through the dictionary items
         for key, arr in data_dict.items():
-            # Get the number of values in the current array
             current_num_values = arr.size
 
-            # Check if the number of values is different from the reference
             if current_num_values != reference_num_values:
                 different_num_values.add(current_num_values)
 
-        # Print the different number of values (if any)
         if different_num_values:
             return False, different_num_values
         else:
@@ -828,7 +609,7 @@ class ImageSynchronizer:
             self.filename = self.gui.filename_list[0]
             logfile = self.gui.logfile_filepath
 
-        if data_type == 'iCap TQ (Daisy)':
+        if data_type == 'iCap TQ':
             with open(self.directory) as file:
                 rawdata_dataframe = pd.read_csv(file, skiprows=13)
             rawdata_dataframe_without_dwelltimes = rawdata_dataframe.drop(index=0)

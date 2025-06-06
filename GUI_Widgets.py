@@ -7,7 +7,6 @@ if TYPE_CHECKING:
 
 import tkinter as tk
 from tkinter import ttk
-from tkinterdnd2 import *
 
 def drop_logfile(event):
     GUI_Master.GUI.logfile_filepath = event.data
@@ -84,9 +83,6 @@ class GUIWidgets:
         self.go_button = ttk.Button(master=self.conversion_frame,
                                     text='Load Data',
                                     command=self.gui_master.build_experiment_objects)
-        self.show_data_button = ttk.Button(master=self.conversion_frame,
-                                    text='Show Data',
-                                    command=self.gui_master.show_data)
         self.build_laser_duration_button = ttk.Button(master=self.conversion_frame,
                                                       text='Export Data',
                                                       command=self.gui_master.export_data)
@@ -100,16 +96,22 @@ class GUIWidgets:
 
         # The Move Sample Menu
         self.move_frame = ttk.Frame(master=self.master_window,
-                                         width=110,
+                                         width=300,
                                          height=80)
-        self.move_up_button = ttk.Button(master=self.move_frame,
-                                         text="Move Up",
-                                         command=lambda: self.gui_master.moveup(),
-                                         width=15)
-        self.move_down_button = ttk.Button(master=self.move_frame,
-                                           text="Move Down",
-                                           command=lambda: self.gui_master.movedown(),
-                                           width=15)
+        self.background_sample_state = tk.IntVar()
+        self.background_sample_state.set(0)
+        self.background_sample_checkbutton = ttk.Checkbutton(master=self.move_frame,
+                                         text="Use Sample as Background",
+                                                             onvalue=1,
+                                                             offvalue=0,
+                                                             variable=self.background_sample_state,
+                                         command=self.gui_master.enable_background_sample_entry,
+                                         width=28)
+        self.background_sample = tk.StringVar()
+        self.background_sample_entry = ttk.Entry(master=self.move_frame,
+                                                  textvariable=self.background_sample,
+                                                  width=15,
+                                                  state='disabled')
         # The separator menu
         self.separator_frame = ttk.Frame(master=self.master_window,
                                          width=110,
@@ -129,13 +131,6 @@ class GUIWidgets:
                                                     self.separator_export,
                                                     *option_list)
 
-        self.options_button = ttk.Button(master=self.master_window,
-                                   text='Options',
-                                   command=self.gui_master.open_options_menu)
-        self.reset_button = ttk.Button(master=self.master_window,
-                                   text='Reset',
-                                   command=self.gui_master.options_menu.reset_options)
-
         # The data type menu
         self.datatype_frame = ttk.Frame(master=self.master_window,
                                         width=240,
@@ -145,21 +140,16 @@ class GUIWidgets:
                                             text='Data Type',
                                             borderwidth=5)
         self.data_type = tk.StringVar()
-        self.data_type.set('iCap TQ (Daisy)')
+        self.data_type.set('iCap TQ')
         self.icap_tq_radiobutton = ttk.Radiobutton(master=self.datatype_frame,
-                                                   text='iCap TQ (Daisy)',
+                                                   text='iCap TQ',
                                                    variable=self.data_type,
-                                                   value='iCap TQ (Daisy)',
+                                                   value='iCap TQ',
                                                    command=self.gui_master.change_of_instrument)
-        self.agilent7900_radiobutton = ttk.Radiobutton(master=self.datatype_frame,
-                                                       text='Agilent 7900',
+        self.uxrf_radiobutton = ttk.Radiobutton(master=self.datatype_frame,
+                                                       text='µXRF',
                                                        variable=self.data_type,
-                                                       value='Agilent 7900',
-                                                       command=self.gui_master.change_of_instrument)
-        self.eic_radiobutton = ttk.Radiobutton(master=self.datatype_frame,
-                                                       text='EIC',
-                                                       variable=self.data_type,
-                                                       value='EIC',
+                                                       value='µXRF',
                                                        command=self.gui_master.change_of_instrument)
 
         self.master_window.grid_columnconfigure(index=0, weight=1)
@@ -199,30 +189,10 @@ class GUIWidgets:
                                                            offvalue=False,
                                                            variable=self.synchronization,
                                                            command=self.gui_master.change_of_synchronization_mode)
-        self.multiple_samples = tk.BooleanVar(value=False)
-        self.checkbutton_multiple_samples = ttk.Checkbutton(master=self.synchronization_frame,
-                                                           text='Multiple Samples',
-                                                           onvalue=True,
-                                                           offvalue=False,
-                                                           variable=self.multiple_samples,
-                                                           command=self.gui_master.change_of_synchronization_mode,
-                                                            state='disabled')
         self.button_synchronization = ttk.Button(master=self.synchronization_frame,
                                                  text='Synchronize',
                                                  command=self.gui_master.synchronize_data,
                                                  state='disabled')
-        self.view_logfile_button = ttk.Button(master=self.synchronization_frame,
-                                                 text='View Logfile',
-                                                 command=self.gui_master.logfile_viewer.show_logfile,
-                                                 state='disabled')
-        self.first_line_synchronization = tk.BooleanVar(value=False)
-        self.checkbutton_first_line_synchronization = ttk.Checkbutton(master=self.synchronization_frame,
-                                                                      text='Use first Line for Synchronization',
-                                                                      onvalue=True,
-                                                                      offvalue=False,
-                                                                      variable=self.first_line_synchronization,
-                                                                      command=self.gui_master.change_of_synchronization_mode,
-                                                                      state='disabled')
 
         self.data_status_frame = ttk.Frame(master=self.full_synchronization_frame,
                                           width=525,
@@ -278,30 +248,15 @@ class GUIWidgets:
         self.import_samples_button.grid(row=0, column=1, pady=5, padx=10)
         self.samples_treeview.grid(row=1, column=1, rowspan=2, pady=5)
 
-
-
-        self.move_frame.grid(row=0, column=1, sticky='nw')
-        self.move_frame.grid_propagate(False)
-        self.move_up_button.grid(row=0, column=0, pady=(5, 0), padx=5)
-        self.move_down_button.grid(row=1, column=0, pady=10, padx=5)
-
-        self.options_button.grid(row=1, column=1, sticky='ne')
-        self.reset_button.grid(row=2, column=1, sticky='ne')
-
-        self.separator_frame.grid(row=1, column=1, rowspan=3, sticky='nw')
-        self.separator_frame.grid_propagate(False)
-        self.separator_header_import.grid(row=0, column=0, pady=(10, 0), padx=(10, 0))
-        self.separator_header_export.grid(row=2, column=0, pady=(10, 0), padx=(10, 0))
-        self.separator_menu_import.grid(row=1, column=0, sticky='we', padx=(10, 0))
-        self.separator_menu_export.grid(row=3, column=0, sticky='we', padx=(10, 0))
-
+        self.move_frame.grid(row=0, column=1, columnspan=2, sticky='nw')
+        self.background_sample_checkbutton.grid(row=0, column=0, columnspan=2, pady=(5, 0), padx=5)
+        self.background_sample_entry.grid(row=1, column=0, pady=10, padx=5)
 
         self.datatype_frame.grid(row=4, column=1, pady=(10,0), rowspan=2, sticky='w')
         self.datatype_frame.grid_propagate(False)
         self.header_instruments.grid(row=0, column=0, pady=(5, 0))
         self.icap_tq_radiobutton.grid(row=1, column=0, padx=(5,0))
-        self.agilent7900_radiobutton.grid(row=2, column=0, sticky='w', padx=(5,0))
-        self.eic_radiobutton.grid(row=3, column=0, sticky='w', padx=(5,0))
+        self.uxrf_radiobutton.grid(row=2, column=0, sticky='w', padx=(5,0))
         self.header_laser.grid(row=0, column=1, pady=(10, 0))
         self.imagebio_radiobutton.grid(row=1, column=1, padx=(10,0))
         self.cetac_g2plus_radiobutton.grid(row=2, column=1, sticky='w', padx=(10,0))
@@ -311,12 +266,9 @@ class GUIWidgets:
 
         self.synchronization_frame.grid(row=0, column=1, pady=(5, 0), padx=(36, 0))
         self.synchronization_frame.grid_propagate(False)
-        self.header_synchronization.grid(row=0, column=0, sticky='n', pady=(5, 0), columnspan=2)
+        self.header_synchronization.grid(row=0, column=0, sticky='ne', pady=(5, 0), padx=10, columnspan=2)
         self.checkbutton_synchronization.grid(row=1, column=0, sticky='w', padx=(5,0), pady=(5,0))
-        self.checkbutton_multiple_samples.grid(row=1, column=1, sticky='w', pady=(5,0))
         self.button_synchronization.grid(row=2, column=0, pady=(5,0))
-        self.view_logfile_button.grid(row=2, column=1, pady=(5,0))
-        self.checkbutton_first_line_synchronization.grid(row=3, column=0, sticky='w', columnspan=2, padx=(5,0), pady=(5,0))
 
         self.data_status_frame.grid(row=0, column=0, pady=5, padx=9)
         self.data_status_frame.grid_propagate(False)
@@ -335,6 +287,5 @@ class GUIWidgets:
 
         self.choose_data_combobox.grid(row=0, column=4, pady=(5, 0), sticky='w')
         self.go_button.grid(row=0, column=17, pady=(5, 0), sticky='w')
-        self.show_data_button.grid(row=0, column=18, pady=(5, 0), sticky='w')
         self.build_laser_duration_button.grid(row=0, column=19, pady=(5,0), sticky='e')
         self.progressbar.grid(row=2, column=0, columnspan=20, pady=(10, 0), padx=(10, 0))

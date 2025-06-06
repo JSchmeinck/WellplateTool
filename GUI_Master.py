@@ -1,39 +1,28 @@
-import numpy as np
-import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
 import os
 import ExperimentClass
 import GUI_Widgets
 import Synchronization
-from tkinter import messagebox
 import Importer
-import Logfile_Viewer
 import Windows_Notifications
-import Display_Options
 
 
 class GUI:
     def __init__(self, master_window, main):
-        # Setting up the main window
         self.master_window = master_window
         self.main=main
         self.master_window.title("LassoTool")
         self.master_window.geometry('900x620')
         self.master_window.resizable(width=False, height=False)
 
-        self.options_menu = Display_Options.DisplayOptions(master_window=master_window)
         self.importer = Importer.Importer(gui=self)
-        self.logfile_viewer = Logfile_Viewer.LogfileViewer(gui=self, master_window=master_window)
         self.notifications = Windows_Notifications.Notifications(gui=self)
 
         self.widgets = GUI_Widgets.GUIWidgets(gui_master=self,
                                               master_window=master_window)
-
-        # The experiment Class that will be created for the post ablation data recreation
         self.experiment = None
 
-        # Introducing general Variables of the GUI object
         self.list_of_files = []
         self.filename_list = []
         self.idxs = None
@@ -46,7 +35,7 @@ class GUI:
         self.data_is_synchronized = False
         self.data_is_background_corrected = False
         self.data_is_first_line_synchronized = False
-        self.multiple_samples_detected = False
+        self.well_data = None
     def grid_gui_widgets(self):
         self.widgets.grid_gui_widgets()
 
@@ -57,18 +46,13 @@ class GUI:
         one Experiment
         :return: The directory which was chosen by the user to contain the logfile
         """
-        # Open file explorer to choose one CSV file
         if dropped is False:
             self.logfile_filepath: str = tk.filedialog.askopenfilename(title='Choose a logfile',
                                                                    filetypes=[('CSV', '*.csv')])
 
-        # The file name is extracted from the directory
         self.logfile_filename: list = [os.path.basename(self.logfile_filepath)]
-        # If a logfile has been selected previously, that logfile is being deleted.
-        # Only one logfile can be selected per Experiment
         for item in self.widgets.logfile_treeview.get_children():
             self.widgets.logfile_treeview.delete(item)
-        # The new logfile is added to the corresponding Treeview
         self.widgets.logfile_treeview.insert(parent='',
                                              index=0,
                                              text='',
@@ -83,7 +67,7 @@ class GUI:
         folders/files is inserted into the corresponding Treeview. Resets the list of files and filenames and
         updates them with the new samples.
         """
-        if self.widgets.data_type.get() == 'iCap TQ (Daisy)':
+        if self.widgets.data_type.get() == 'iCap TQ':
             self.list_of_files = []
             self.filename_list = []
 
@@ -103,41 +87,20 @@ class GUI:
                 else:
                     self.list_of_files.append(i)
 
-        if self.widgets.data_type.get() == 'Agilent 7900':
-
+        if self.widgets.data_type.get() == 'µXRF':
             self.list_of_files = []
             self.filename_list = []
             folder_filepath = tk.filedialog.askdirectory(title='Choose your sample folder')
 
-            folders = [os.path.abspath(os.path.join(folder_filepath, f)) for f in os.listdir(folder_filepath) if
-                       os.path.isdir(os.path.join(folder_filepath, f))]
-            for folder in folders:
-                foldername = os.path.basename(folder)
-                if foldername in self.filename_list:
-                    pass
-                else:
-                    self.filename_list.append(foldername)
 
-                if folder in self.list_of_files:
-                    pass
-                else:
-                    self.list_of_files.append(folder)
-
-        if self.widgets.data_type.get() == 'EIC':
-            self.list_of_files = []
-            self.filename_list = []
-
-            file = tk.filedialog.askopenfilename(title='Choose your sample File',
-                                                              filetypes=[('CSV', '*.csv')])
-
-            self.filename_list = [os.path.basename(file)]
-            self.list_of_files = [file]
+            self.list_of_files.append(folder_filepath)
+            foldername = os.path.basename(folder_filepath)
+            self.filename_list.append(foldername)
 
 
         for item in self.widgets.samples_treeview.get_children():
             self.widgets.samples_treeview.delete(item)
 
-        # self.data_list_samples.delete(0, 'end')
         for i, k in enumerate(self.filename_list):
             self.widgets.samples_treeview.insert(parent='', index=i, text='', values=[str(k)])
 
@@ -153,70 +116,31 @@ class GUI:
         if self.widgets.data_type.get() == 'iCap TQ (Daisy)':
             self.widgets.import_samples_button.configure(text='Import Sample')
             self.widgets.separator_import.set(';')
-
-        if self.widgets.data_type.get() == 'Agilent 7900':
-            self.widgets.import_samples_button.configure(text='Import Sample Folder')
-            self.widgets.separator_import.set(',')
-        if self.widgets.data_type.get() == 'EIC':
+            self.widgets.checkbutton_synchronization.configure(state=tk.ACTIVE)
+        if self.widgets.data_type.get() == 'µXRF':
             self.widgets.import_samples_button.configure(text='Import Sample')
             self.widgets.separator_import.set(';')
+            self.widgets.import_logfile_button.configure(state=tk.DISABLED)
+            for item in self.widgets.logfile_treeview.get_children():
+                self.widgets.logfile_treeview.delete(item)
+            self.logfile_filename = []
+            self.widgets.checkbutton_synchronization.configure(state=tk.DISABLED)
 
     def change_of_synchronization_mode(self):
         if self.widgets.synchronization.get():
-            self.widgets.move_up_button.configure(state='disabled')
-            self.widgets.move_down_button.configure(state='disabled')
             self.widgets.button_synchronization.configure(state='active')
-            self.widgets.checkbutton_multiple_samples.configure(state='active')
-            self.widgets.checkbutton_first_line_synchronization.configure(state='active')
-            if self.widgets.multiple_samples.get():
-                self.widgets.view_logfile_button.configure(state='active')
-            else:
-                self.widgets.view_logfile_button.configure(state='disabled')
             if self.widgets.data_type.get() == 'iCap TQ (Daisy)':
                 self.widgets.separator_import.set(',')
         else:
-            self.widgets.move_up_button.configure(state='active')
-            self.widgets.move_down_button.configure(state='active')
-            self.widgets.checkbutton_first_line_synchronization.configure(state='disabled')
             self.widgets.button_synchronization.configure(state='disabled')
-            self.widgets.view_logfile_button.configure(state='disabled')
-            self.widgets.checkbutton_multiple_samples.configure(state='disabled')
 
         self.update_status()
 
-    def moveup(self):
-        """
-        Updates the treeview and the file and filename lists to reflect the users intend to reorganize
-        the sample input files before data conversion. This function moves one file one place up in the
-        treeview and file lists as long as its not the first one already.
-        """
-        selection = self.widgets.samples_treeview.selection()
-        if selection:
-            selected_item = selection[0]
-            index = self.widgets.samples_treeview.index(selected_item)
-            if index > 0:
-                self.widgets.samples_treeview.move(selected_item, '', index - 1)
-                self.list_of_files[index], self.list_of_files[index - 1] = self.list_of_files[index - 1], \
-                    self.list_of_files[index]
-                self.filename_list[index], self.filename_list[index - 1] = self.filename_list[index - 1], \
-                    self.filename_list[index]
-
-    def movedown(self):
-        """
-        Updates the treeview and the file and filename lists to reflect the users intend to reorganize
-        the sample input files before data conversion. This function moves one file one place down in the
-        treeview and file lists as long as its not the last one already.
-        """
-        selection = self.widgets.samples_treeview.selection()
-        if selection:
-            selected_item = selection[0]
-            index = self.widgets.samples_treeview.index(selected_item)
-            if index < len(self.list_of_files) - 1:
-                self.widgets.samples_treeview.move(selected_item, '', index + 2)
-                self.list_of_files[index], self.list_of_files[index + 1] = self.list_of_files[index + 1], \
-                    self.list_of_files[index]
-                self.filename_list[index], self.filename_list[index + 1] = self.filename_list[index + 1], \
-                    self.filename_list[index]
+    def enable_background_sample_entry(self):
+        if self.widgets.background_sample_state.get() == 1:
+            self.widgets.background_sample_entry.configure(state='active')
+        else:
+            self.widgets.background_sample_entry.configure(state='disabled')
 
     def build_experiment_objects(self):
         """
@@ -227,18 +151,17 @@ class GUI:
 
         synchronized = self.synchronization_query()
 
-        multiple_samples = self.widgets.multiple_samples.get()
-
         sample_rawdata_dictionary = self.importer.import_sample_file(data_type=self.widgets.data_type.get(),
                                                                      synchronized=synchronized)
 
-        logfile_dataframe = self.importer.import_laser_logfile(logfile=self.logfile_filepath,
-                                                               laser_type=self.widgets.laser_type.get(),
-                                                               iolite_file=synchronized,
-                                                               rectangular_data_calculation=True)
+        if self.widgets.data_type.get() != 'µXRF':
 
-        if multiple_samples:
-            logfile_dataframe = self.logfile_viewer.divide_samples(logfile=logfile_dataframe)
+            logfile_dataframe = self.importer.import_laser_logfile(logfile=self.logfile_filepath,
+                                                                   laser_type=self.widgets.laser_type.get(),
+                                                                   iolite_file=synchronized,
+                                                                   rectangular_data_calculation=True)
+        else:
+            logfile_dataframe = None
 
         self.experiment = ExperimentClass.Experiment(gui=self,
                                                      raw_laser_logfile_dataframe=logfile_dataframe,
@@ -249,64 +172,21 @@ class GUI:
 
         self.experiment.build_rectangular_data()
 
-    def build_laserduration_sheet(self):
-        """
-        Collect the data from the logfile and creates the managing experiment instance
-        for the patter duration file.
-        """
-        self.reset_progress()
-        logfile_dataframe = self.importer.import_laser_logfile(logfile=self.logfile_filepath,
-                                                               laser_type='ImageBIO 266',
-                                                               iolite_file=False,
-                                                               rectangular_data_calculation=True)
-
-        self.experiment = ExperimentClass.Experiment(gui=self,
-                                                     raw_laser_logfile_dataframe=logfile_dataframe,
-                                                     sample_rawdata_dictionary={},
-                                                     data_type=self.widgets.data_type.get(),
-                                                     logfile_filepath=self.logfile_filepath,
-                                                     fill_value=None,
-                                                     synchronized=False)
-
-        self.experiment.build_laser_ablation_times()
-
     def update_status(self, reset=False):
         if reset:
             self.data_is_synchronized = False
             self.data_is_background_corrected = False
             self.data_is_first_line_synchronized = False
-            self.multiple_samples_detected = False
             self.widgets.data_is_synchronized_checkbutton.grid_remove()
-            self.widgets.first_line_for_synchronization_checkbutton.grid_remove()
             self.widgets.background_corrected_checkbutton.grid_remove()
-            self.widgets.multiple_samples_detected_checkbutton.grid_remove()
-        if self.widgets.multiple_samples.get():
-            self.widgets.multiple_samples_detected_checkbutton.grid(row=0, column=0, padx=5, pady=5, sticky='w')
-            logfile_dataframe = self.importer.import_laser_logfile(logfile=self.logfile_filepath,
-                                                                   laser_type=self.widgets.laser_type.get(),
-                                                                   iolite_file=True,
-                                                                   rectangular_data_calculation=True)
-            if logfile_dataframe is False:
-                self.widgets.multiple_samples_detected_checkbutton.grid_remove()
-                self.widgets.multiple_samples.set(False)
-                return
-            self.logfile_viewer.divide_samples(logfile=logfile_dataframe, multiple_samples_query=True)
-            self.widgets.multiple_samples_detected.set(self.multiple_samples_detected)
         if self.widgets.synchronization.get():
             self.widgets.data_is_synchronized_checkbutton.grid(row=0, column=0, padx=5, pady=5, sticky='w')
             self.widgets.data_is_synchronized.set(self.data_is_synchronized)
-            self.widgets.first_line_for_synchronization_checkbutton.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-            self.widgets.first_line_for_synchronization.set(self.data_is_first_line_synchronized)
             self.widgets.background_corrected_checkbutton.grid(row=2, column=0, padx=5, pady=5, sticky='w')
             self.widgets.background_corrected.set(self.data_is_background_corrected)
         if self.widgets.synchronization.get() is False:
             self.widgets.data_is_synchronized_checkbutton.grid_remove()
-            self.widgets.first_line_for_synchronization_checkbutton.grid_remove()
             self.widgets.background_corrected_checkbutton.grid_remove()
-            self.widgets.multiple_samples_detected_checkbutton.grid_remove()
-
-    def show_data(self):
-        self.experiment.show_data(sample=self.filename_list[0], analyte=self.widgets.choose_data_combobox.get())
 
     def create_new_window(self, name):
         self.new_Window = tk.Toplevel(self.master_window)
