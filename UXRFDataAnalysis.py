@@ -54,6 +54,7 @@ def assign_peak(peak_energy, tolerance=0.09):
         'Cu': [(8.05, 'Kα'), (8.90, 'Kβ')],
         'Hg': [(9.99, 'Lα'), (11.82, 'Lβ')],
         'Pb': [(10.55, 'Lα'), (12.61, 'Lβ')],
+        'Cr': [(5.41, 'Kα'), (5.95, 'Kβ')],
         'S':  [(2.31, 'Kα')]
     }
     assignments = []
@@ -126,9 +127,10 @@ def process_sample(sample_name, df, background_sample, sample_dict, distance=5, 
         'Pb': ['Pb Lα', 'Pb Lβ'],
         'Cu': ['Cu Kα', 'Cu Kβ'],
         'Hg': ['Hg Lα', 'Hg Lβ'],
+        'Cr': ['Cr Kα', 'Cr Kβ'],
         'S':  ['S Kα']}
 
-    for element in ['As', 'Cu', 'Pb', 'Hg']:
+    for element in ['As', 'Cu', 'Pb', 'Hg', 'Cr']:
         keys = expected_emissions[element]
         if not all(key in emission_areas for key in keys):
             for key in keys:
