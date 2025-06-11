@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import tkinter as tk
-import XRFConversion2
+import XRFConversion
 
 def filter_laser_shots(df):
     rows_to_keep = []
@@ -262,7 +262,7 @@ class Importer:
 
             return sample_rawdata_dictionary
         if data_type == 'µXRF':
-            sample_rawdata_dictionary[f'{self.gui.filename_list[0]}'] = XRFConversion2.process_XRF_data(self.gui.list_of_files[0], background_sample=self.gui.widgets.background_sample.get())
+            sample_rawdata_dictionary[f'{self.gui.filename_list[0]}'] = XRFConversion.process_XRF_data(self.gui.list_of_files[0], background_sample=self.gui.widgets.background_sample.get())
             return sample_rawdata_dictionary
     def import_well_data(self):
         file_path = tk.filedialog.askopenfilename()
